@@ -37,7 +37,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           cache-disabled: false
-          add-job-summary-as-comment: always
+          add-job-summary: always
           validate-wrappers: false
 
       - name: Capacitor Sync
