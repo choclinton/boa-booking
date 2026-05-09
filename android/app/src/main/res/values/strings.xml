@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BOABook</string>
+    <string name="title_activity_main">BOABook</string>
+    <string name="package_name">com.boabook.app</string>
+    <string name="custom_url_scheme">com.boabook.app</string>
+</resources>

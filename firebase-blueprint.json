@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and roles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "provider", "client"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email", "role"]
+    },
+    "Business": {
+      "title": "Business Listing",
+      "description": "Service provider business details",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "number" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "bannerImage": { "type": "string" }
+      },
+      "required": ["ownerId", "name", "category"]
+    },
+    "Service": {
+      "title": "Business Service",
+      "description": "Services offered by a business",
+      "type": "object",
+      "properties": {
+        "businessId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "duration": { "type": "number" }
+      },
+      "required": ["businessId", "name", "price", "duration"]
+    },
+    "Booking": {
+      "title": "Appointment Booking",
+      "description": "Appointment details",
+      "type": "object",
+      "properties": {
+        "businessId": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled", "completed"] },
+        "totalPrice": { "type": "number" }
+      },
+      "required": ["businessId", "serviceId", "clientId", "startTime", "endTime"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profiles" },
+    "/businesses/{businessId}": { "schema": "Business", "description": "Business listings" },
+    "/businesses/{businessId}/services/{serviceId}": { "schema": "Service", "description": "Services per business" },
+    "/bookings/{bookingId}": { "schema": "Booking", "description": "Global bookings list" }
+  }
+}

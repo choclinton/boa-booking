@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'admin@booksy.com' ||
+        request.auth.token.email == 'chonjifuaclinton93@gmail.com' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function isFastAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'admin@booksy.com' ||
+        request.auth.token.email == 'chonjifuaclinton93@gmail.com'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // User Profile Rules
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isFastAdmin();
+      allow create: if isOwner(userId) && 
+                      incoming().role in ['client', 'provider', 'admin'] &&
+                      incoming().keys().hasAll(['id', 'email', 'role', 'createdAt']);
+      allow update: if (isOwner(userId) || isFastAdmin()) && 
+                      incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'role', 'businessId']);
+    }
+
+    // Business Rules
+    match /businesses/{businessId} {
+      allow read: if true; // Public listings
+      allow create: if isSignedIn() && incoming().ownerId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        (existing().ownerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'bannerImage', 'address', 'city', 'updatedAt'])) || 
+        isFastAdmin()
+      );
+      allow delete: if isFastAdmin();
+      
+      match /services/{serviceId} {
+        allow read: if true;
+        allow write: if isSignedIn() && (get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid || isFastAdmin());
+      }
+    }
+
+    // Booking Rules
+    match /bookings/{bookingId} {
+      allow list: if isSignedIn() && (
+        resource.data.clientId == request.auth.uid || 
+        resource.data.businessOwnerId == request.auth.uid ||
+        request.auth.token.email == 'admin@booksy.com' ||
+        request.auth.token.email == 'chonjifuaclinton93@gmail.com'
+      );
+      allow get: if isSignedIn() && (
+        resource.data.clientId == request.auth.uid || 
+        resource.data.businessOwnerId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isSignedIn() && incoming().clientId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        resource.data.clientId == request.auth.uid || 
+        resource.data.businessOwnerId == request.auth.uid ||
+        isAdmin()
+      ) && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if isAdmin();
+    }
+  }
+}
