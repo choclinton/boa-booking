@@ -4,6 +4,7 @@ import { MapPin, ArrowRight, Sparkles } from 'lucide-react';
 import { CATEGORIES } from '../constants';
 import { db } from '../lib/firebase';
 import { collection, getDocs, query, limit } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { Business } from '../types';
 import BusinessCard from '../components/BusinessCard';
 import { Skeleton } from '../components/ui/skeleton';
@@ -16,13 +17,14 @@ const Home = () => {
 
   useEffect(() => {
     const fetchBusinesses = async () => {
+      const path = 'businesses';
       try {
-        const q = query(collection(db, 'businesses'), limit(9));
+        const q = query(collection(db, path), limit(9));
         const snapshot = await getDocs(q);
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Business[];
         setBusinesses(data);
       } catch (error) {
-        console.error("Error fetching businesses:", error);
+        handleFirestoreError(error, OperationType.LIST, path);
       } finally {
         setLoading(false);
       }

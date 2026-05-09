@@ -32,48 +32,55 @@ const Dashboard = () => {
         
         if (isAdmin) {
           // Fetch System Stats
-          const usersSnap = await getDocs(collection(db, 'users'));
-          const bizSnap = await getDocs(collection(db, 'businesses'));
-          const bookingsSnap = await getDocs(collection(db, 'bookings'));
-          setStats({
-            users: usersSnap.size,
-            businesses: bizSnap.size,
-            bookings: bookingsSnap.size
-          });
+          const usersSnap = await getDocs(collection(db, 'users')).catch(e => handleFirestoreError(e, OperationType.LIST, 'users'));
+          const bizSnap = await getDocs(collection(db, 'businesses')).catch(e => handleFirestoreError(e, OperationType.LIST, 'businesses'));
+          const bookingsSnap = await getDocs(collection(db, 'bookings')).catch(e => handleFirestoreError(e, OperationType.LIST, 'bookings'));
+          
+          if (usersSnap && bizSnap && bookingsSnap) {
+            setStats({
+              users: usersSnap.size,
+              businesses: bizSnap.size,
+              bookings: bookingsSnap.size
+            });
 
-          // Fetch recent users
-          const usersList = usersSnap.docs.map(d => ({ id: d.id, ...d.data() } as UserProfile));
-          setAllUsers(usersList);
+            // Fetch recent users
+            const usersList = usersSnap.docs.map(d => ({ id: d.id, ...d.data() } as UserProfile));
+            setAllUsers(usersList);
+          }
 
           // Fetch recent bookings
           const qRecentBookings = query(collection(db, 'bookings'), orderBy('startTime', 'desc'), limit(10));
-          const snapRecent = await getDocs(qRecentBookings);
-          const bookingData = await Promise.all(snapRecent.docs.map(async (d) => {
-            const data = d.data() as Booking;
-            const bizDoc = await getDoc(doc(db, 'businesses', data.businessId));
-            const svcDoc = await getDoc(doc(db, 'businesses', data.businessId, 'services', data.serviceId));
-            return {
-              id: d.id,
-              ...data,
-              businessName: bizDoc.exists() ? bizDoc.data().name : 'Unknown Business',
-              serviceName: svcDoc.exists() ? svcDoc.data().name : 'Unknown Service'
-            };
-          }));
-          setBookings(bookingData);
+          const snapRecent = await getDocs(qRecentBookings).catch(e => handleFirestoreError(e, OperationType.LIST, 'bookings'));
+          if (snapRecent) {
+            const bookingData = await Promise.all(snapRecent.docs.map(async (d) => {
+              const data = d.data() as Booking;
+              const bizDoc = await getDoc(doc(db, 'businesses', data.businessId)).catch(e => handleFirestoreError(e, OperationType.GET, `businesses/${data.businessId}`));
+              const svcDoc = await getDoc(doc(db, 'businesses', data.businessId, 'services', data.serviceId)).catch(e => handleFirestoreError(e, OperationType.GET, `businesses/${data.businessId}/services/${data.serviceId}`));
+              return {
+                id: d.id,
+                ...data,
+                businessName: (bizDoc && bizDoc.exists()) ? bizDoc.data().name : 'Unknown Business',
+                serviceName: (svcDoc && svcDoc.exists()) ? svcDoc.data().name : 'Unknown Service'
+              };
+            }));
+            setBookings(bookingData);
+          }
 
         } else if (isProvider) {
           // Fetch Provider's Businesses
           const qBiz = query(collection(db, 'businesses'), where('ownerId', '==', user.uid));
-          const snapshotBiz = await getDocs(qBiz);
-          const bizData = await Promise.all(snapshotBiz.docs.map(async (d) => {
-            const servicesSnap = await getDocs(collection(db, 'businesses', d.id, 'services'));
-            return {
-              id: d.id,
-              ...d.data(),
-              servicesCount: servicesSnap.size
-            };
-          }));
-          setBusinesses(bizData);
+          const snapshotBiz = await getDocs(qBiz).catch(e => handleFirestoreError(e, OperationType.LIST, 'businesses'));
+          if (snapshotBiz) {
+            const bizData = await Promise.all(snapshotBiz.docs.map(async (d) => {
+              const servicesSnap = await getDocs(collection(db, 'businesses', d.id, 'services')).catch(e => handleFirestoreError(e, OperationType.LIST, `businesses/${d.id}/services`));
+              return {
+                id: d.id,
+                ...d.data(),
+                servicesCount: servicesSnap ? servicesSnap.size : 0
+              };
+            }));
+            setBusinesses(bizData);
+          }
 
           // Fetch Bookings for all my businesses
           const qBookings = query(
@@ -81,19 +88,21 @@ const Dashboard = () => {
             where('businessOwnerId', '==', user.uid),
             orderBy('startTime', 'desc')
           );
-          const snapshotBookings = await getDocs(qBookings);
-          const bookingData = await Promise.all(snapshotBookings.docs.map(async (d) => {
-            const data = d.data() as Booking;
-            const bizDoc = await getDoc(doc(db, 'businesses', data.businessId));
-            const svcDoc = await getDoc(doc(db, 'businesses', data.businessId, 'services', data.serviceId));
-            return {
-              id: d.id,
-              ...data,
-              businessName: bizDoc.exists() ? bizDoc.data().name : 'Unknown Business',
-              serviceName: svcDoc.exists() ? svcDoc.data().name : 'Unknown Service'
-            };
-          }));
-          setBookings(bookingData);
+          const snapshotBookings = await getDocs(qBookings).catch(e => handleFirestoreError(e, OperationType.LIST, 'bookings'));
+          if (snapshotBookings) {
+            const bookingData = await Promise.all(snapshotBookings.docs.map(async (d) => {
+              const data = d.data() as Booking;
+              const bizDoc = await getDoc(doc(db, 'businesses', data.businessId)).catch(e => handleFirestoreError(e, OperationType.GET, `businesses/${data.businessId}`));
+              const svcDoc = await getDoc(doc(db, 'businesses', data.businessId, 'services', data.serviceId)).catch(e => handleFirestoreError(e, OperationType.GET, `businesses/${data.businessId}/services/${data.serviceId}`));
+              return {
+                id: d.id,
+                ...data,
+                businessName: (bizDoc && bizDoc.exists()) ? bizDoc.data().name : 'Unknown Business',
+                serviceName: (svcDoc && svcDoc.exists()) ? svcDoc.data().name : 'Unknown Service'
+              };
+            }));
+            setBookings(bookingData);
+          }
 
         } else {
           // Client View
@@ -102,22 +111,24 @@ const Dashboard = () => {
             where('clientId', '==', user.uid),
             orderBy('startTime', 'desc')
           );
-          const snapshotBookings = await getDocs(qBookings);
-          const bookingData = await Promise.all(snapshotBookings.docs.map(async (d) => {
-            const data = d.data() as Booking;
-            const bizDoc = await getDoc(doc(db, 'businesses', data.businessId));
-            const svcDoc = await getDoc(doc(db, 'businesses', data.businessId, 'services', data.serviceId));
-            return {
-              id: d.id,
-              ...data,
-              businessName: bizDoc.exists() ? bizDoc.data().name : 'Unknown Business',
-              serviceName: svcDoc.exists() ? svcDoc.data().name : 'Unknown Service'
-            };
-          }));
-          setBookings(bookingData);
+          const snapshotBookings = await getDocs(qBookings).catch(e => handleFirestoreError(e, OperationType.LIST, 'bookings'));
+          if (snapshotBookings) {
+            const bookingData = await Promise.all(snapshotBookings.docs.map(async (d) => {
+              const data = d.data() as Booking;
+              const bizDoc = await getDoc(doc(db, 'businesses', data.businessId)).catch(e => handleFirestoreError(e, OperationType.GET, `businesses/${data.businessId}`));
+              const svcDoc = await getDoc(doc(db, 'businesses', data.businessId, 'services', data.serviceId)).catch(e => handleFirestoreError(e, OperationType.GET, `businesses/${data.businessId}/services/${data.serviceId}`));
+              return {
+                id: d.id,
+                ...data,
+                businessName: (bizDoc && bizDoc.exists()) ? bizDoc.data().name : 'Unknown Business',
+                serviceName: (svcDoc && svcDoc.exists()) ? svcDoc.data().name : 'Unknown Service'
+              };
+            }));
+            setBookings(bookingData);
+          }
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Dashboard error:", error);
       } finally {
         setLoading(false);
       }

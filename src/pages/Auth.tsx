@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -21,9 +22,9 @@ const Auth = () => {
       const result = await signInWithPopup(auth, provider);
       
       const userRef = doc(db, 'users', result.user.uid);
-      const userDoc = await getDoc(userRef);
+      const userDoc = await getDoc(userRef).catch(e => handleFirestoreError(e, OperationType.GET, `users/${result.user.uid}`));
       
-      if (!userDoc.exists()) {
+      if (userDoc && !userDoc.exists()) {
         await setDoc(userRef, {
           id: result.user.uid,
           email: result.user.email,
@@ -31,7 +32,7 @@ const Auth = () => {
           photoURL: result.user.photoURL,
           role: 'client',
           createdAt: new Date()
-        });
+        }).catch(e => handleFirestoreError(e, OperationType.CREATE, `users/${result.user.uid}`));
       }
       
       toast.success('Signed in successfully!');
@@ -50,12 +51,13 @@ const Auth = () => {
         toast.success('Welcome back!');
       } else {
         const result = await createUserWithEmailAndPassword(auth, email, password);
-        await setDoc(doc(db, 'users', result.user.uid), {
+        const userRef = doc(db, 'users', result.user.uid);
+        await setDoc(userRef, {
           id: result.user.uid,
           email: result.user.email,
           role: 'client',
           createdAt: new Date()
-        });
+        }).catch(e => handleFirestoreError(e, OperationType.CREATE, `users/${result.user.uid}`));
         toast.success('Account created!');
       }
       navigate('/');
@@ -140,19 +142,6 @@ const Auth = () => {
           </p>
         </div>
 
-        <div className="mt-8 p-4 bg-brand/5 border border-brand/20 rounded-2xl">
-          <p className="text-[10px] uppercase font-black text-brand tracking-[0.2em] mb-1.5">Admin Access</p>
-          <div className="space-y-2">
-            <p className="text-xs text-neutral-500 leading-relaxed">
-              Login with <span className="text-white font-medium">chonjifuaclinton93@gmail.com</span> for system admin access.
-            </p>
-            <div className="pt-2 border-t border-brand/10">
-              <p className="text-[9px] uppercase font-bold text-neutral-600 tracking-wider mb-1">Legacy Admin</p>
-              <p className="text-xs text-neutral-500 flex justify-between">Email: <span className="text-neutral-400">admin@booksy.com</span></p>
-              <p className="text-xs text-neutral-500 flex justify-between mt-0.5">Pass: <span className="text-neutral-400">BooksyAdmin2026!</span></p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
