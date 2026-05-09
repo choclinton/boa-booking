@@ -35,6 +35,10 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: false
+          add-job-summary-as-comment: always
+          validate-wrappers: false
 
       - name: Capacitor Sync
         run: npx cap sync android
